@@ -1,0 +1,17 @@
+@layer components {
+  .card {
+    @apply bg-white rounded-2xl shadow-sm p-5;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition;
+  }
+
+  .btn-danger {
+    @apply px-4 py-2 rounded-xl bg-rose-500 text-white hover:bg-rose-600 transition;
+  }
+
+  .sidebar-link {
+    @apply block px-4 py-2 rounded-lg hover:bg-slate-800 transition;
+  }
+}
