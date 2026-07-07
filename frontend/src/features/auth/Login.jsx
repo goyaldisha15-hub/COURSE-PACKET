@@ -95,7 +95,7 @@ export default function Login() {
       </form>
 
       <div className="mt-4 text-center">
-        <span className="text-sm text-slate-500">Naya user? </span>
+        <span className="text-sm text-slate-500">New user? </span>
         <button
           type="button"
           onClick={() => navigate("/register")}

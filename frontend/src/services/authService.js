@@ -1,114 +1,48 @@
-const USER_STORAGE_KEY = "lms-users";
+import axios from "axios";
 
-const initialUsers = [
-  {
-    id: "u1",
-    name: "Super Admin",
-    email: "admin@lms.com",
-    password: "admin123",
-    role: "admin",
-    section: null,
-    accessSections: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "u2",
-    name: "Priya Sharma",
-    email: "priya@lms.com",
-    password: "faculty123",
-    role: "faculty",
-    section: "AI/ML",
-    accessSections: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "u3",
-    name: "Aman Singh",
-    email: "aman@lms.com",
-    password: "student123",
-    role: "student",
-    section: "AI/ML",
-    accessSections: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "u4",
-    name: "Riya Patel",
-    email: "riya@lms.com",
-    password: "student123",
-    role: "student",
-    section: "FSD",
-    accessSections: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+const API_BASE_URL = "http://localhost:5000/api";
 
-function getStoredUsers() {
-  try {
-    const raw = localStorage.getItem(USER_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(initialUsers));
-      return [...initialUsers];
-    }
-    return JSON.parse(raw);
-  } catch {
-    return [...initialUsers];
-  }
-}
-
-function saveUsers(users) {
-  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(users));
-}
-
-function sanitizeUser(user) {
-  const { password, ...safe } = user;
-  return safe;
-}
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
 export async function loginUser({ email, password, role }) {
-  const users = getStoredUsers();
-  const matched = users.find(
-    (user) => user.email === email && user.password === password && user.role === role
-  );
-  if (!matched) {
-    throw new Error("Invalid email, password, or role.");
+  try {
+    const response = await apiClient.post("/auth/login", { email, password, role });
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || "Login failed. Please try again.", { cause: error });
   }
-  return sanitizeUser(matched);
 }
 
 export async function registerUser({ name, email, password, role, section }) {
-  const users = getStoredUsers();
-  if (!email || !password || !role) {
-    throw new Error("Name, email, password, and role are required.");
+  try {
+    const response = await apiClient.post("/auth/register", {
+      name,
+      email,
+      password,
+      role,
+      section,
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || "Registration failed. Please try again.", { cause: error });
   }
-  if (role === "student" && !section) {
-    throw new Error("Student section is required.");
+}
+
+export async function getUsers(role, email) {
+  try {
+    const response = await apiClient.get("/admin/users", {
+      headers: {
+        "x-user-email": email,
+        "x-user-role": role,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || "Failed to fetch users", { cause: error });
   }
-
-  const existing = users.find((user) => user.email === email);
-  if (existing) {
-    throw new Error("Email already exists. Please use another email.");
-  }
-
-  const id = `u${users.length + 1}`;
-  const now = new Date().toISOString();
-  const newUser = {
-    id,
-    name: name || email.split("@")[0],
-    email,
-    password,
-    role,
-    section: role === "student" || role === "faculty" ? section : null,
-    accessSections: [],
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  users.push(newUser);
-  saveUsers(users);
-  return sanitizeUser(newUser);
 }

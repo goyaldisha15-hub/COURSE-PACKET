@@ -1,20 +1,25 @@
-import { createUser, validateUser } from "../models/userModel.js";
+import { createUser, listUsers, validateUser } from "../models/userModel.js";
 
-export function login(req, res) {
+export async function login(req, res) {
   const { email, password, role } = req.body;
   if (!email || !password || !role) {
     return res.status(400).json({ message: "Email, password, and role are required." });
   }
 
-  const user = validateUser(email, password, role);
-  if (!user) {
-    return res.status(401).json({ message: "Invalid credentials." });
-  }
+  try {
+    const user = await validateUser(email, password, role);
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials." });
+    }
 
-  return res.json(user);
+    return res.json(user);
+  } catch (error) {
+    console.error("Login error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
 }
 
-export function register(req, res) {
+export async function register(req, res) {
   const { name, email, password, role, section } = req.body;
   if (!email || !password || !role) {
     return res.status(400).json({ message: "Name, email, password, and role are required." });
@@ -24,10 +29,25 @@ export function register(req, res) {
     return res.status(400).json({ message: "Student section is required." });
   }
 
-  const user = createUser({ name, email, password, role, section });
-  if (!user) {
-    return res.status(400).json({ message: "Unable to register user. Email may already exist or invalid data." });
-  }
+  try {
+    const user = await createUser({ name, email, password, role, section });
+    if (!user) {
+      return res.status(400).json({ message: "Unable to register user. Email may already exist or invalid data." });
+    }
 
-  return res.status(201).json(user);
+    return res.status(201).json(user);
+  } catch (error) {
+    console.error("Register error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function getUsers(req, res) {
+  try {
+    const users = await listUsers();
+    return res.json(users);
+  } catch (error) {
+    console.error("List users error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
 }

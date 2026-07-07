@@ -1,26 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Layout from "../../components/layout/Layout";
+import { useAuth } from "../../context/AuthContext";
+import { getPackets } from "../../services/packetService";
+import PacketProgress from "../../components/common/PacketProgress";
+import LiveMeta from "../../components/common/LiveMeta";
 
-const initialStatusData = [
-  {
-    id: 1,
-    packet: "Packet A",
-    status: "Pending",
-    date: "18 June 2026",
-  },
-  {
-    id: 2,
-    packet: "Packet B",
-    status: "Approved",
-    date: "17 June 2026",
-  },
-  {
-    id: 3,
-    packet: "Packet C",
-    status: "Rejected",
-    date: "16 June 2026",
-  },
-];
+function formatStatus(status) {
+  return status ? status.charAt(0).toUpperCase() + status.slice(1) : "Pending";
+}
 
 function StatusBadge({ status }) {
   const color =
@@ -38,57 +25,79 @@ function StatusBadge({ status }) {
 }
 
 export default function TrackStatus() {
-  const [statusData, setStatusData] = useState(initialStatusData);
+  const { logout, user } = useAuth();
+  const [statusData, setStatusData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  const handleLogout = () => {
-    console.log("logout");
-  };
+  useEffect(() => {
+    if (!user?.email || !user?.role) return;
 
-  const cancelRequest = (id) => {
-    setStatusData((cur) => cur.map((it) => (it.id === id ? { ...it, status: "Cancelled" } : it)));
-  };
+    const loadStatus = () => {
+      getPackets(user.email, user.role)
+        .then((data) => {
+          setStatusData(data);
+          setLastUpdated(new Date());
+          setError(null);
+        })
+        .catch((err) => setError(err.message || "Unable to load status"))
+        .finally(() => setLoading(false));
+    };
+
+    loadStatus();
+    const timer = setInterval(loadStatus, 10000);
+    return () => clearInterval(timer);
+  }, [user]);
 
   return (
     <Layout
       title="Track Status"
       subtitle="Check your packet request progress"
-      onLogout={handleLogout}
+      onLogout={logout}
     >
       <div className="card">
-        <h3 className="text-lg font-semibold text-slate-800 mb-4">
-          Request History
-        </h3>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-800">Request History</h3>
+          <LiveMeta lastUpdated={lastUpdated} />
+        </div>
 
+        {loading ? (
+          <p className="text-slate-600">Loading status...</p>
+        ) : error ? (
+          <p className="text-rose-600">{error}</p>
+        ) : statusData.length === 0 ? (
+          <p className="text-slate-600">No approved packets available yet.</p>
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b bg-slate-50">
                 <th className="p-3">ID</th>
                 <th className="p-3">Packet</th>
+                <th className="p-3">Course</th>
                 <th className="p-3">Status</th>
+                <th className="p-3">Progress</th>
                 <th className="p-3">Date</th>
-                <th className="p-3">Action</th>
               </tr>
             </thead>
             <tbody>
               {statusData.map((item) => (
                 <tr key={item.id} className="border-b hover:bg-slate-50">
                   <td className="p-3">{item.id}</td>
-                  <td className="p-3">{item.packet}</td>
+                  <td className="p-3">{item.title}</td>
+                  <td className="p-3">{item.course}</td>
                   <td className="p-3">
-                    <StatusBadge status={item.status} />
+                    <StatusBadge status={formatStatus(item.status)} />
                   </td>
-                  <td className="p-3">{item.date}</td>
-                  <td className="p-3">
-                    {item.status !== "Cancelled" && (
-                      <button onClick={() => cancelRequest(item.id)} className="btn-secondary">Cancel</button>
-                    )}
-                  </td>
+                  <td className="p-3"><PacketProgress status={item.status} /></td>
+                  <td className="p-3">{new Date(item.createdAt).toLocaleDateString()}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        )}
       </div>
     </Layout>
   );

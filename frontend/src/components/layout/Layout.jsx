@@ -1,5 +1,6 @@
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import AiBot from "../common/AiBot";
 
 export default function Layout({ title, subtitle, onLogout, children }) {
   return (
@@ -10,6 +11,7 @@ export default function Layout({ title, subtitle, onLogout, children }) {
         <Header title={title} subtitle={subtitle} onLogout={onLogout} />
         <div className="mt-6">{children}</div>
       </main>
+      <AiBot />
     </div>
   );
 }

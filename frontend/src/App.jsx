@@ -18,6 +18,7 @@ import CourseDetail from "./features/student/course-tracking/CourseDetail";
 import SubmitPacket from "./features/faculty/packet-submission/SubmitPacket";
 import AdminApproval from "./features/admin/AdminApproval";
 import ApprovedPackets from "./features/student/approved-data/ApprovedPackets";
+import Notifications from "./features/notifications/Notifications";
 
 export default function App() {
   return (
@@ -33,6 +34,10 @@ export default function App() {
             <Route path="/admin/approval" element={<AdminApproval />} />
             <Route path="/admin/reports" element={<Reports />} />
             <Route path="/admin/users" element={<Users />} />
+          </Route>
+
+          <Route element={<ProtectedRoute allowedRoles={["admin", "faculty", "student"]} />}>
+            <Route path="/notifications" element={<Notifications />} />
           </Route>
 
           <Route element={<ProtectedRoute allowedRoles={["faculty"]} />}>

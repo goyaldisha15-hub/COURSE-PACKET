@@ -5,9 +5,10 @@ import {
   getPacketRequestById,
   updatePacketStatus,
   getFacultyPacketRequests,
+  getAllPackets,
 } from "../models/packetModel.js";
 
-export function submitPacketRequest(req, res) {
+export async function submitPacketRequest(req, res) {
   const { title, course, description } = req.body;
   const facultyEmail = req.headers["x-user-email"] || "faculty@example.com";
   const submittedBy = req.headers["x-user-email"] || "faculty@example.com";
@@ -16,37 +17,82 @@ export function submitPacketRequest(req, res) {
     return res.status(400).json({ message: "Title, course, and description are required." });
   }
 
-  const packet = createPacketRequest({ title, course, description, submittedBy, facultyEmail });
-  return res.status(201).json(packet);
-}
-
-export function listPendingPackets(req, res) {
-  return res.json(getPendingPacketRequests());
-}
-
-export function approvePacket(req, res) {
-  const { packetId } = req.params;
-  const packet = updatePacketStatus(packetId, "approved");
-  if (!packet) {
-    return res.status(404).json({ message: "Packet request not found." });
+  try {
+    const packet = await createPacketRequest({ title, course, description, submittedBy, facultyEmail });
+    return res.status(201).json(packet);
+  } catch (error) {
+    console.error("Error submitting packet:", error);
+    return res.status(500).json({ message: "Server error" });
   }
-  return res.json(packet);
 }
 
-export function rejectPacket(req, res) {
-  const { packetId } = req.params;
-  const packet = updatePacketStatus(packetId, "rejected");
-  if (!packet) {
-    return res.status(404).json({ message: "Packet request not found." });
+export async function listPendingPackets(req, res) {
+  try {
+    const packets = await getPendingPacketRequests();
+    return res.json(packets);
+  } catch (error) {
+    console.error("Error fetching pending packets:", error);
+    return res.status(500).json({ message: "Server error" });
   }
-  return res.json(packet);
 }
 
-export function listApprovedPackets(req, res) {
-  return res.json(getApprovedPacketRequests());
+export async function approvePacket(req, res) {
+  const { packetId } = req.params;
+  const { remarks } = req.body;
+  try {
+    const packet = await updatePacketStatus(packetId, "approved", remarks);
+    if (!packet) {
+      return res.status(404).json({ message: "Packet request not found." });
+    }
+    return res.json(packet);
+  } catch (error) {
+    console.error("Error approving packet:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
 }
 
-export function listFacultyPackets(req, res) {
+export async function rejectPacket(req, res) {
+  const { packetId } = req.params;
+  const { remarks } = req.body;
+  try {
+    const packet = await updatePacketStatus(packetId, "rejected", remarks);
+    if (!packet) {
+      return res.status(404).json({ message: "Packet request not found." });
+    }
+    return res.json(packet);
+  } catch (error) {
+    console.error("Error rejecting packet:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function listApprovedPackets(req, res) {
+  try {
+    const packets = await getApprovedPacketRequests();
+    return res.json(packets);
+  } catch (error) {
+    console.error("Error fetching approved packets:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function listFacultyPackets(req, res) {
   const facultyEmail = req.headers["x-user-email"] || "faculty@example.com";
-  return res.json(getFacultyPacketRequests(facultyEmail));
+  try {
+    const packets = await getFacultyPacketRequests(facultyEmail);
+    return res.json(packets);
+  } catch (error) {
+    console.error("Error fetching faculty packets:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function listAllPackets(req, res) {
+  try {
+    const packets = await getAllPackets();
+    return res.json(packets);
+  } catch (error) {
+    console.error("Error fetching all packets:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
 }

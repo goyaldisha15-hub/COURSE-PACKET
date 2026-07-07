@@ -1,8 +1,8 @@
-import { courseAccessRequests, getNextRequestId } from "./db.js";
+import { allAsync, getAsync, runAsync } from "./database.js";
 import { findUserByEmail, grantStudentSectionAccess } from "./userModel.js";
 
-export function createCourseAccessRequest({ studentEmail, requestedSection, courseTitle, reason }) {
-  const student = findUserByEmail(studentEmail);
+export async function createCourseAccessRequest({ studentEmail, requestedSection, courseTitle, reason }) {
+  const student = await findUserByEmail(studentEmail);
   if (!student || student.role !== "student") {
     return null;
   }
@@ -11,72 +11,96 @@ export function createCourseAccessRequest({ studentEmail, requestedSection, cour
     return null;
   }
 
-  const existing = courseAccessRequests.find(
-    (request) =>
-      request.studentEmail === studentEmail &&
-      request.requestedSection === requestedSection &&
-      request.status === "pending"
+  const existing = await getAsync(
+    "SELECT * FROM requests WHERE studentEmail = ? AND status = 'pending' LIMIT 1",
+    [studentEmail]
   );
 
   if (existing) {
     return null;
   }
 
-  const newRequest = {
-    id: getNextRequestId(),
-    studentEmail,
-    studentSection: student.section,
-    requestedSection,
-    courseTitle: courseTitle || "Any course from section",
-    reason: reason || "Cross-section access needed",
-    status: "pending",
-    teacherEscalated: false,
-    approvedByAdmin: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+  const now = new Date().toISOString();
+  try {
+    await runAsync(
+      `INSERT INTO requests (studentEmail, status, requestedAt) 
+       VALUES (?, 'pending', ?)`,
+      [studentEmail, now]
+    );
 
-  courseAccessRequests.push(newRequest);
-  return newRequest;
+    const request = await allAsync(
+      "SELECT * FROM requests WHERE studentEmail = ? ORDER BY id DESC LIMIT 1",
+      [studentEmail]
+    );
+    return request[0] || null;
+  } catch (error) {
+    console.error("Error creating course access request:", error);
+    return null;
+  }
 }
 
-export function listRequestsForStudent(studentEmail) {
-  return courseAccessRequests.filter((request) => request.studentEmail === studentEmail);
+export async function listRequestsForStudent(studentEmail) {
+  return allAsync("SELECT * FROM requests WHERE studentEmail = ? ORDER BY requestedAt DESC", [studentEmail]);
 }
 
-export function listPendingRequests() {
-  return courseAccessRequests.filter((request) => request.status === "pending");
+export async function listPendingRequests() {
+  return allAsync("SELECT * FROM requests WHERE status = 'pending' ORDER BY requestedAt DESC");
 }
 
-export function listRequestsForSection(section) {
-  return courseAccessRequests.filter(
-    (request) => request.requestedSection === section && request.status === "pending"
+export async function listRequestsForSection(section) {
+  return allAsync(
+    "SELECT * FROM requests WHERE status = 'pending' ORDER BY requestedAt DESC"
   );
 }
 
-export function updateRequestStatus(id, status, adminEmail) {
-  const request = courseAccessRequests.find((entry) => entry.id === id);
-  if (!request || !["approved", "rejected"].includes(status)) {
+export async function updateRequestStatus(id, status, adminEmail) {
+  if (!["approved", "rejected"].includes(status)) {
     return null;
   }
 
-  request.status = status;
-  request.adminEmail = adminEmail;
-  request.updatedAt = new Date().toISOString();
+  const now = new Date().toISOString();
+  try {
+    const request = await getAsync("SELECT * FROM requests WHERE id = ?", [id]);
+    if (!request) {
+      return null;
+    }
 
-  if (status === "approved") {
-    grantStudentSectionAccess(request.studentEmail, request.requestedSection);
+    await runAsync(
+      "UPDATE requests SET status = ?, approvedAt = ? WHERE id = ?",
+      [status, status === "approved" ? now : null, id]
+    );
+
+    if (status === "approved") {
+      const studentEmail = request.studentEmail;
+      // Get student's section info
+      const student = await findUserByEmail(studentEmail);
+      if (student && request.courseId) {
+        // Grant access if courseId exists
+        const course = await getAsync("SELECT * FROM courses WHERE id = ?", [request.courseId]);
+        if (course) {
+          await grantStudentSectionAccess(studentEmail, course.section);
+        }
+      }
+    }
+
+    return getAsync("SELECT * FROM requests WHERE id = ?", [id]);
+  } catch (error) {
+    console.error("Error updating request status:", error);
+    return null;
   }
-
-  return request;
 }
 
-export function escalateRequest(id) {
-  const request = courseAccessRequests.find((entry) => entry.id === id);
-  if (!request || request.status !== "pending") {
+export async function escalateRequest(id) {
+  const request = await getAsync("SELECT * FROM requests WHERE id = ? AND status = 'pending'", [id]);
+  if (!request) {
     return null;
   }
-  request.teacherEscalated = true;
-  request.updatedAt = new Date().toISOString();
-  return request;
+
+  const now = new Date().toISOString();
+  await runAsync(
+    "UPDATE requests SET updatedAt = ? WHERE id = ?",
+    [now, id]
+  );
+
+  return getAsync("SELECT * FROM requests WHERE id = ?", [id]);
 }

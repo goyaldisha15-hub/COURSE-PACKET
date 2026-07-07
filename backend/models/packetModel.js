@@ -1,48 +1,59 @@
-const packetRequests = [];
-let nextPacketId = 1;
+import { allAsync, getAsync, runAsync } from "./database.js";
 
-export function createPacketRequest({ title, course, description, submittedBy, facultyEmail }) {
-  const newPacket = {
-    id: nextPacketId.toString(),
-    title,
-    course,
-    description,
-    submittedBy,
-    facultyEmail,
-    status: "pending",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+export async function createPacketRequest({ title, course, description, submittedBy, facultyEmail }) {
+  const now = new Date().toISOString();
+  try {
+    await runAsync(
+      `INSERT INTO packets (title, course, description, submittedBy, facultyEmail, status, createdAt, updatedAt) 
+       VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
+      [title, course, description, submittedBy, facultyEmail, now, now]
+    );
 
-  packetRequests.push(newPacket);
-  nextPacketId += 1;
-  return newPacket;
+    const packet = await allAsync(
+      "SELECT * FROM packets WHERE facultyEmail = ? ORDER BY id DESC LIMIT 1",
+      [facultyEmail]
+    );
+    return packet[0] || null;
+  } catch (error) {
+    console.error("Error creating packet request:", error);
+    return null;
+  }
 }
 
-export function getPendingPacketRequests() {
-  return packetRequests.filter((packet) => packet.status === "pending");
+export async function getPendingPacketRequests() {
+  return allAsync("SELECT * FROM packets WHERE status = 'pending' ORDER BY createdAt DESC");
 }
 
-export function getApprovedPacketRequests() {
-  return packetRequests.filter((packet) => packet.status === "approved");
+export async function getApprovedPacketRequests() {
+  return allAsync("SELECT * FROM packets WHERE status = 'approved' ORDER BY createdAt DESC");
 }
 
-export function getRejectedPacketRequests() {
-  return packetRequests.filter((packet) => packet.status === "rejected");
+export async function getRejectedPacketRequests() {
+  return allAsync("SELECT * FROM packets WHERE status = 'rejected' ORDER BY createdAt DESC");
 }
 
-export function getPacketRequestById(id) {
-  return packetRequests.find((packet) => packet.id === id);
+export async function getPacketRequestById(id) {
+  return getAsync("SELECT * FROM packets WHERE id = ?", [id]);
 }
 
-export function updatePacketStatus(id, status) {
-  const packet = getPacketRequestById(id);
-  if (!packet) return null;
-  packet.status = status;
-  packet.updatedAt = new Date().toISOString();
-  return packet;
+export async function updatePacketStatus(id, status, remarks = null) {
+  const now = new Date().toISOString();
+  try {
+    await runAsync(
+      "UPDATE packets SET status = ?, remarks = ?, updatedAt = ? WHERE id = ?",
+      [status, remarks, now, id]
+    );
+    return getAsync("SELECT * FROM packets WHERE id = ?", [id]);
+  } catch (error) {
+    console.error("Error updating packet status:", error);
+    return null;
+  }
 }
 
-export function getFacultyPacketRequests(facultyEmail) {
-  return packetRequests.filter((packet) => packet.facultyEmail === facultyEmail);
+export async function getFacultyPacketRequests(facultyEmail) {
+  return allAsync("SELECT * FROM packets WHERE facultyEmail = ? ORDER BY createdAt DESC", [facultyEmail]);
+}
+
+export async function getAllPackets() {
+  return allAsync("SELECT * FROM packets ORDER BY createdAt DESC");
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import Layout from "../../components/layout/Layout";
 import { getPendingPackets, approvePacket, rejectPacket } from "../../services/packetService";
+import LiveMeta from "../../components/common/LiveMeta";
 
 function StatusBadge({ status }) {
   const color =
@@ -19,19 +20,28 @@ export default function AdminApproval() {
   const [packets, setPackets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selected, setSelected] = useState([]);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
     if (!user) return;
 
-    getPendingPackets(user.role, user.email)
-      .then((data) => {
-        setPackets(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message || "Unable to load pending packets");
-        setLoading(false);
-      });
+    const loadPending = () => {
+      getPendingPackets(user.role, user.email)
+        .then((data) => {
+          setPackets(data);
+          setLastUpdated(new Date());
+          setLoading(false);
+        })
+        .catch((err) => {
+          setError(err.message || "Unable to load pending packets");
+          setLoading(false);
+        });
+    };
+
+    loadPending();
+    const timer = setInterval(loadPending, 10000);
+    return () => clearInterval(timer);
   }, [user]);
 
   const handleAction = async (id, action) => {
@@ -41,17 +51,73 @@ export default function AdminApproval() {
         : await rejectPacket(id, user.role, user.email);
 
       setPackets((current) => current.filter((packet) => packet.id !== updated.id));
+      setSelected((s) => s.filter((x) => x !== id));
     } catch (err) {
       setError(err.message || "Could not update packet");
     }
+  };
+
+  const toggle = (id) => {
+    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  };
+
+  const selectAll = (checked) => {
+    setSelected(checked ? packets.map((p) => p.id) : []);
+  };
+
+  const bulkUpdate = async (action) => {
+    if (!selected.length) {
+      alert("Please select at least one packet before applying bulk actions.");
+      return;
+    }
+
+    try {
+      const selectedPackets = packets.filter((p) => selected.includes(p.id));
+      
+      for (const packet of selectedPackets) {
+        await handleAction(packet.id, action);
+      }
+    } catch (err) {
+      setError(err.message || "Could not update packets");
+    }
+  };
+
+  const exportCSV = () => {
+    const exportPackets = selected.length ? packets.filter((p) => selected.includes(p.id)) : packets;
+    if (!exportPackets.length) {
+      alert("No packets available to export.");
+      return;
+    }
+
+    const rows = exportPackets.map((p) => `${p.id},${p.title},${p.course},${p.facultyEmail},${p.status},${new Date(p.createdAt).toLocaleDateString()}`);
+    const csv = ["id,title,course,faculty_email,status,submitted_date", ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "packets.csv";
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
   };
 
   return (
     <Layout title="Admin Approval" subtitle="Approve or reject faculty packet requests" onLogout={logout}>
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-800">Pending Approval</h3>
-          <p className="text-sm text-slate-500">Only admin can approve or reject.</p>
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800">Pending Approval</h3>
+            <LiveMeta lastUpdated={lastUpdated} />
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => bulkUpdate("approve")} className="btn-primary">Bulk Approve</button>
+            <button onClick={() => bulkUpdate("reject")} className="btn-secondary">Bulk Reject</button>
+            <button onClick={exportCSV} className="btn-secondary">Export CSV</button>
+          </div>
         </div>
 
         {loading ? (
@@ -65,6 +131,9 @@ export default function AdminApproval() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b bg-slate-50">
+                  <th className="p-3">
+                    <input type="checkbox" onChange={(e) => selectAll(e.target.checked)} checked={selected.length === packets.length && packets.length > 0} />
+                  </th>
                   <th className="p-3">ID</th>
                   <th className="p-3">Title</th>
                   <th className="p-3">Course</th>
@@ -77,6 +146,9 @@ export default function AdminApproval() {
               <tbody>
                 {packets.map((packet) => (
                   <tr key={packet.id} className="border-b hover:bg-slate-50">
+                    <td className="p-3">
+                      <input type="checkbox" checked={selected.includes(packet.id)} onChange={() => toggle(packet.id)} />
+                    </td>
                     <td className="p-3">{packet.id}</td>
                     <td className="p-3">{packet.title}</td>
                     <td className="p-3">{packet.course}</td>

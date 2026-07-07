@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Layout from "../../../components/layout/Layout";
 import { useAuth } from "../../../context/AuthContext";
 import { getStudentCourses } from "../../../services/courseService";
+import LiveMeta from "../../../components/common/LiveMeta";
 
 export default function CourseTracking() {
   const { user, logout } = useAuth();
@@ -10,19 +11,27 @@ export default function CourseTracking() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
     if (!user) return;
 
-    getStudentCourses(user.role)
-      .then((data) => {
-        setCourses(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message || "Unable to load courses");
-        setLoading(false);
-      });
+    const loadCourses = () => {
+      getStudentCourses(user.role, user.email)
+        .then((data) => {
+          setCourses(data);
+          setLastUpdated(new Date());
+          setLoading(false);
+        })
+        .catch((err) => {
+          setError(err.message || "Unable to load courses");
+          setLoading(false);
+        });
+    };
+
+    loadCourses();
+    const timer = setInterval(loadCourses, 10000);
+    return () => clearInterval(timer);
   }, [user]);
 
   const totalCourses = courses.length;
@@ -68,7 +77,7 @@ export default function CourseTracking() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <div>
               <h3 className="text-lg font-semibold text-slate-800">Your Courses</h3>
-              <p className="text-sm text-slate-500">Track completion, last lesson, and pending modules.</p>
+              <LiveMeta lastUpdated={lastUpdated} />
             </div>
             <button onClick={() => navigate("/student/courses/1")} className="btn-secondary">
               Open first course

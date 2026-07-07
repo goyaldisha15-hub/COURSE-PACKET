@@ -3,6 +3,7 @@ import cors from "cors";
 import courseTrackingRoutes from "./routes/courseTracking.js";
 import packetRoutes from "./routes/packetRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import { initializeDatabase } from "./models/database.js";
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -23,6 +24,14 @@ app.get("/", (req, res) => {
   res.send({ status: "ok", message: "Backend is running" });
 });
 
-app.listen(port, () => {
-  console.log(`Backend server listening on http://localhost:${port}`);
-});
+// Initialize database and start server
+initializeDatabase()
+  .then(() => {
+    app.listen(port, () => {
+      console.log(`Backend server listening on http://localhost:${port}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Failed to initialize database:", err);
+    process.exit(1);
+  });

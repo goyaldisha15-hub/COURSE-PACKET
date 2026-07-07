@@ -1,38 +1,55 @@
-import { courses, getNextCourseId } from "./db.js";
+import { allAsync, getAsync, runAsync } from "./database.js";
 
-export function findCourseById(id) {
-  return courses.find((course) => course.id === id);
+export async function findCourseById(id) {
+  return getAsync("SELECT * FROM courses WHERE id = ?", [id]);
 }
 
-export function listCoursesBySection(section) {
-  return courses.filter((course) => course.section === section);
+export async function listCoursesBySection(section) {
+  return allAsync("SELECT * FROM courses WHERE section = ? ORDER BY createdAt DESC", [section]);
 }
 
-export function listCoursesForStudent(studentSection, extraSections = []) {
-  const allowedSections = [studentSection, ...new Set(extraSections)];
-  return courses.filter((course) => allowedSections.includes(course.section));
+export async function listCoursesForStudent(studentSection, extraSections = []) {
+  const sections = [studentSection, ...new Set(extraSections)];
+  const placeholders = sections.map(() => "?").join(",");
+  return allAsync(
+    `SELECT * FROM courses WHERE section IN (${placeholders}) ORDER BY createdAt DESC`,
+    sections
+  );
 }
 
-export function listCoursesByTeacher(teacherEmail) {
-  return courses.filter((course) => course.teacherEmail === teacherEmail);
+export async function listCoursesByTeacher(teacherEmail) {
+  return allAsync(
+    `SELECT * FROM courses WHERE (facultyId = (SELECT id FROM users WHERE email = ?)) ORDER BY createdAt DESC`,
+    [teacherEmail]
+  );
 }
 
-export function createCourse({ title, description, section, teacherEmail }) {
+export async function createCourse({ title, description, section, teacherEmail }) {
   if (!title || !description || !section || !teacherEmail) {
     return null;
   }
 
-  const newCourse = {
-    id: getNextCourseId(),
-    title,
-    description,
-    section,
-    teacherEmail,
-    status: "published",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+  const now = new Date().toISOString();
+  try {
+    // Get faculty ID from email
+    const faculty = await getAsync("SELECT id FROM users WHERE email = ? AND role = 'faculty'", [teacherEmail]);
+    if (!faculty) {
+      return null;
+    }
 
-  courses.push(newCourse);
-  return newCourse;
+    await runAsync(
+      `INSERT INTO courses (title, code, section, facultyId, createdAt, updatedAt) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [title, `${section}-${Date.now()}`, section, faculty.id, now, now]
+    );
+
+    const course = await allAsync(
+      "SELECT * FROM courses WHERE section = ? AND facultyId = ? ORDER BY id DESC LIMIT 1",
+      [section, faculty.id]
+    );
+    return course[0] || null;
+  } catch (error) {
+    console.error("Error creating course:", error);
+    return null;
+  }
 }

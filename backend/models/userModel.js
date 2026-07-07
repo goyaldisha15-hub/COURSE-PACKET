@@ -1,31 +1,33 @@
-import { users, sections, getNextUserId } from "./db.js";
+import { allAsync, getAsync, runAsync } from "./database.js";
 
-export function findUserByEmail(email) {
-  return users.find((user) => user.email === email);
+export async function findUserByEmail(email) {
+  return getAsync("SELECT * FROM users WHERE email = ?", [email]);
 }
 
-export function findUserById(id) {
-  return users.find((user) => user.id === id);
+export async function findUserById(id) {
+  return getAsync("SELECT * FROM users WHERE id = ?", [id]);
 }
 
-export function listUsers() {
-  return users.map(({ password, ...user }) => ({ ...user }));
+export async function listUsers() {
+  const users = await allAsync("SELECT id, name, email, role, section, accessSections, createdAt, updatedAt FROM users");
+  return users;
 }
 
-export function listTeachers() {
-  return users
-    .filter((user) => user.role === "faculty")
-    .map(({ password, ...user }) => ({ ...user }));
+export async function listTeachers() {
+  return allAsync(
+    "SELECT id, name, email, role, section, accessSections, createdAt, updatedAt FROM users WHERE role = 'faculty'"
+  );
 }
 
-export function listStudents() {
-  return users
-    .filter((user) => user.role === "student")
-    .map(({ password, ...user }) => ({ ...user }));
+export async function listStudents() {
+  return allAsync(
+    "SELECT id, name, email, role, section, accessSections, createdAt, updatedAt FROM users WHERE role = 'student'"
+  );
 }
 
-export function createUser({ name, email, password, role, section }) {
-  if (findUserByEmail(email)) {
+export async function createUser({ name, email, password, role, section }) {
+  const existing = await findUserByEmail(email);
+  if (existing) {
     return null;
   }
 
@@ -37,71 +39,88 @@ export function createUser({ name, email, password, role, section }) {
     return null;
   }
 
-  if (role === "faculty" && section && !sections.includes(section)) {
-    section = null;
+  const finalSection = role === "student" || role === "faculty" ? section : null;
+  const now = new Date().toISOString();
+
+  try {
+    await runAsync(
+      `INSERT INTO users (name, email, password, role, section, createdAt, updatedAt) 
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [name || email.split("@")[0], email, password, role, finalSection, now, now]
+    );
+
+    const newUser = await findUserByEmail(email);
+    const { password: _, ...safeUser } = newUser;
+    return safeUser;
+  } catch (error) {
+    console.error("Error creating user:", error);
+    return null;
   }
-
-  const newUser = {
-    id: getNextUserId(),
-    name: name || email.split("@")[0],
-    email,
-    password,
-    role,
-    section: role === "student" || role === "faculty" ? section : null,
-    accessSections: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  users.push(newUser);
-  const { password: _, ...safeUser } = newUser;
-  return safeUser;
 }
 
-export function updateUserSection(email, section) {
-  const user = findUserByEmail(email);
-  if (!user || !sections.includes(section)) {
+export async function updateUserSection(email, section) {
+  const user = await findUserByEmail(email);
+  if (!user) {
     return null;
   }
 
-  user.section = section;
-  user.updatedAt = new Date().toISOString();
-  const { password: _, ...safeUser } = user;
+  const now = new Date().toISOString();
+  await runAsync(
+    "UPDATE users SET section = ?, updatedAt = ? WHERE email = ?",
+    [section, now, email]
+  );
+
+  const updated = await findUserByEmail(email);
+  const { password: _, ...safeUser } = updated;
   return safeUser;
 }
 
-export function unassignTeacher(email) {
-  const user = findUserByEmail(email);
+export async function unassignTeacher(email) {
+  const user = await findUserByEmail(email);
   if (!user || user.role !== "faculty") {
     return null;
   }
-  user.section = null;
-  user.updatedAt = new Date().toISOString();
-  const { password: _, ...safeUser } = user;
+
+  const now = new Date().toISOString();
+  await runAsync(
+    "UPDATE users SET section = NULL, updatedAt = ? WHERE email = ?",
+    [now, email]
+  );
+
+  const updated = await findUserByEmail(email);
+  const { password: _, ...safeUser } = updated;
   return safeUser;
 }
 
-export function grantStudentSectionAccess(studentEmail, section) {
-  const user = findUserByEmail(studentEmail);
+export async function grantStudentSectionAccess(studentEmail, section) {
+  const user = await findUserByEmail(studentEmail);
   if (!user || user.role !== "student") {
     return null;
   }
 
-  if (!sections.includes(section) || user.accessSections.includes(section)) {
-    return user;
+  const currentAccess = JSON.parse(user.accessSections || "[]");
+  if (currentAccess.includes(section)) {
+    const { password: _, ...safeUser } = user;
+    return safeUser;
   }
 
-  user.accessSections.push(section);
-  user.updatedAt = new Date().toISOString();
-  const { password: _, ...safeUser } = user;
+  currentAccess.push(section);
+  const now = new Date().toISOString();
+  await runAsync(
+    "UPDATE users SET accessSections = ?, updatedAt = ? WHERE email = ?",
+    [JSON.stringify(currentAccess), now, studentEmail]
+  );
+
+  const updated = await findUserByEmail(studentEmail);
+  const { password: _, ...safeUser } = updated;
   return safeUser;
 }
 
-export function validateUser(email, password, role) {
-  const user = users.find(
-    (entry) => entry.email === email && entry.password === password && entry.role === role
-  );
-  if (!user) return null;
+export async function validateUser(email, password, role) {
+  const user = await findUserByEmail(email);
+  if (!user || user.password !== password || user.role !== role) {
+    return null;
+  }
   const { password: _, ...safeUser } = user;
   return safeUser;
 }

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import Layout from "../../../components/layout/Layout";
 import { getApprovedPackets } from "../../../services/packetService";
+import LiveMeta from "../../../components/common/LiveMeta";
+import PacketDetailsModal from "../../../components/common/PacketDetailsModal";
 
 function StatusBadge({ status }) {
   const color =
@@ -19,26 +21,38 @@ export default function ApprovedPackets() {
   const [packets, setPackets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [activePacket, setActivePacket] = useState(null);
 
   useEffect(() => {
     if (!user) return;
 
-    getApprovedPackets(user.role, user.email)
-      .then((data) => {
-        setPackets(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message || "Unable to load approved packets");
-        setLoading(false);
-      });
+    const loadApproved = () => {
+      getApprovedPackets(user.role, user.email)
+        .then((data) => {
+          setPackets(data);
+          setLastUpdated(new Date());
+          setLoading(false);
+        })
+        .catch((err) => {
+          setError(err.message || "Unable to load approved packets");
+          setLoading(false);
+        });
+    };
+
+    loadApproved();
+    const timer = setInterval(loadApproved, 10000);
+    return () => clearInterval(timer);
   }, [user]);
 
   return (
     <Layout title="Approved Packets" subtitle="View approved faculty packet data" onLogout={logout}>
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-800">Approved Packet Data</h3>
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800">Approved Packet Data</h3>
+            <LiveMeta lastUpdated={lastUpdated} />
+          </div>
           <p className="text-sm text-slate-500">Only approved packets are visible to students.</p>
         </div>
 
@@ -59,6 +73,7 @@ export default function ApprovedPackets() {
                   <th className="p-3">Submitted By</th>
                   <th className="p-3">Status</th>
                   <th className="p-3">Submitted On</th>
+                  <th className="p-3">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -70,6 +85,9 @@ export default function ApprovedPackets() {
                     <td className="p-3">{packet.facultyEmail}</td>
                     <td className="p-3"><StatusBadge status={packet.status} /></td>
                     <td className="p-3">{new Date(packet.createdAt).toLocaleDateString()}</td>
+                    <td className="p-3">
+                      <button onClick={() => setActivePacket(packet)} className="btn-secondary">View</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -77,6 +95,7 @@ export default function ApprovedPackets() {
           </div>
         )}
       </div>
+      <PacketDetailsModal packet={activePacket} onClose={() => setActivePacket(null)} />
     </Layout>
   );
 }

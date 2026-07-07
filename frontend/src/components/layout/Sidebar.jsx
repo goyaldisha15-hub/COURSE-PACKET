@@ -8,11 +8,13 @@ const menuItems = {
     { to: "/admin/approval", label: "Approval Workflow" },
     { to: "/admin/reports", label: "Reports" },
     { to: "/admin/users", label: "Users" },
+    { to: "/notifications", label: "Notifications" },
   ],
   faculty: [
     { to: "/faculty", label: "Faculty Dashboard" },
     { to: "/faculty/submit", label: "Submit Packet" },
     { to: "/faculty/review", label: "Review Packets" },
+    { to: "/notifications", label: "Notifications" },
   ],
   student: [
     { to: "/student", label: "Student Dashboard" },
@@ -20,6 +22,7 @@ const menuItems = {
     { to: "/student/track", label: "Track Request Status" },
     { to: "/student/courses", label: "Course Tracking" },
     { to: "/student/approved", label: "Approved Packets" },
+    { to: "/notifications", label: "Notifications" },
   ],
 };
 
