@@ -1,143 +1,74 @@
-import axios from "axios";
+import { authHeaders, formRequest, jsonRequest } from "./apiClient";
 
-const API_BASE_URL = "http://localhost:5000/api";
 
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
+export const getPackets = (email, role) => jsonRequest("get", "/student/packets", null, authHeaders(role, email));
+export const searchPackets = (params, role, email) =>
+  jsonRequest("get", `/student/packets/search?${new URLSearchParams(params)}`, null, authHeaders(role, email));
+export const downloadPacket = (id, role, email) =>
+  jsonRequest("get", `/student/packets/${id}/download`, null, {
+    ...authHeaders(role, email),
+    responseType: "blob",
+  });
+export const addBookmark = (packetId, role, email) =>
+  jsonRequest("post", "/student/bookmarks", { packetId }, authHeaders(role, email));
+export const removeBookmark = (packetId, role, email) =>
+  jsonRequest("delete", `/student/bookmarks/${packetId}`, null, authHeaders(role, email));
+export const getBookmarks = (role, email) => jsonRequest("get", "/student/bookmarks", null, authHeaders(role, email));
+export const getDownloadHistory = (role, email) =>
+  jsonRequest("get", "/student/downloads", null, authHeaders(role, email));
+export const getRecentDownloads = (role, email) =>
+  jsonRequest("get", "/student/downloads/recent", null, authHeaders(role, email));
 
-export async function getPackets(email, role = "student") {
+
+export const submitPacketRequest = (formData, role, email) =>
+  formRequest("/faculty/packets", formData, authHeaders(role, email));
+export const getFacultyPackets = (role, email) =>
+  jsonRequest("get", "/faculty/packets", null, authHeaders(role, email));
+export const editFacultyPacket = (id, data, role, email) =>
+  jsonRequest("put", `/faculty/packets/${id}`, data, authHeaders(role, email));
+export const deleteFacultyPacket = (id, role, email) =>
+  jsonRequest("delete", `/faculty/packets/${id}`, null, authHeaders(role, email));
+export const getFacultyDownloads = async (role, email) => {
   try {
-    const response = await apiClient.get("/student/packets", {
-      headers: {
-        "x-user-email": email,
-        "x-user-role": role,
-      },
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching packets:", error);
-    throw new Error(error.response?.data?.message || "Failed to fetch packets", { cause: error });
+    return await jsonRequest("get", "/faculty/downloads", null, authHeaders(role, email));
+  } catch {
+    return { total: 0 };
   }
-}
+};
 
-export async function submitPacketRequest(payload, role, email) {
-  try {
-    if (!payload.title || !payload.course || !payload.description) {
-      throw new Error("Title, course, and description are required.");
-    }
-    
-    const response = await apiClient.post("/faculty/packets", {
-      title: payload.title,
-      course: payload.course,
-      description: payload.description,
-    }, {
-      headers: {
-        "x-user-email": email,
-        "x-user-role": role,
-      },
-    });
-    return response.data;
-  } catch (error) {
-    throw new Error(error.response?.data?.message || "Failed to submit packet", { cause: error });
-  }
-}
 
-export async function getFacultyPackets(role, email) {
-  try {
-    const response = await apiClient.get("/faculty/packets", {
-      headers: {
-        "x-user-email": email,
-        "x-user-role": role,
-      },
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching faculty packets:", error);
-    throw new Error(error.response?.data?.message || "Failed to fetch faculty packets", { cause: error });
-  }
-}
+export const getPendingPackets = (role, email) =>
+  jsonRequest("get", "/admin/packets/pending", null, authHeaders(role, email));
+export const getAllPackets = (role, email) =>
+  jsonRequest("get", "/admin/packets", null, authHeaders(role, email));
+export const approvePacket = (id, role, email, remarks = "") =>
+  jsonRequest("post", `/admin/packets/${id}/approve`, { remarks }, authHeaders(role, email));
+export const rejectPacket = (id, role, email, remarks = "") =>
+  jsonRequest("post", `/admin/packets/${id}/reject`, { remarks }, authHeaders(role, email));
+export const returnPacket = (id, role, email, remarks = "") =>
+  jsonRequest("post", `/admin/packets/${id}/return`, { remarks }, authHeaders(role, email));
+export const getApprovedPackets = async (role, email) => {
+  const data = await getAllPackets(role, email);
+  return data.filter((p) => p.status === "approved");
+};
+export const getReports = (role, email) =>
+  jsonRequest("get", "/admin/reports", null, authHeaders(role, email));
 
-export async function getPendingPackets(role, email) {
-  try {
-    const response = await apiClient.get("/admin/packets/pending", {
-      headers: {
-        "x-user-email": email,
-        "x-user-role": role,
-      },
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching pending packets:", error);
-    throw new Error(error.response?.data?.message || "Failed to fetch pending packets", { cause: error });
-  }
-}
 
-export async function getAllPackets(role, email) {
-  try {
-    const response = await apiClient.get("/admin/packets", {
-      headers: {
-        "x-user-email": email,
-        "x-user-role": role,
-      },
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching all packets:", error);
-    throw new Error(error.response?.data?.message || "Failed to fetch packets", { cause: error });
-  }
-}
+export const getDepartments = () => jsonRequest("get", "/departments");
+export const createDepartment = (data, role, email) =>
+  jsonRequest("post", "/admin/departments", data, authHeaders(role, email));
+export const updateDepartment = (id, data, role, email) =>
+  jsonRequest("put", `/admin/departments/${id}`, data, authHeaders(role, email));
+export const deleteDepartment = (id, role, email) =>
+  jsonRequest("delete", `/admin/departments/${id}`, null, authHeaders(role, email));
 
-export async function approvePacket(packetId, role, email, remarks = "") {
-  try {
-    const response = await apiClient.post(
-      `/admin/packets/${packetId}/approve`,
-      { remarks },
-      {
-        headers: {
-          "x-user-role": role,
-          "x-user-email": email,
-        },
-      }
-    );
-    return response.data;
-  } catch (error) {
-    throw new Error(error.response?.data?.message || "Failed to approve packet", { cause: error });
-  }
-}
 
-export async function rejectPacket(packetId, role, email, remarks = "") {
-  try {
-    const response = await apiClient.post(
-      `/admin/packets/${packetId}/reject`,
-      { remarks },
-      {
-        headers: {
-          "x-user-role": role,
-          "x-user-email": email,
-        },
-      }
-    );
-    return response.data;
-  } catch (error) {
-    throw new Error(error.response?.data?.message || "Failed to reject packet", { cause: error });
-  }
-}
-
-export async function getApprovedPackets(role, email) {
-  try {
-    const response = await apiClient.get("/student/packets", {
-      headers: {
-        "x-user-role": role,
-        "x-user-email": email,
-      },
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching approved packets:", error);
-    throw new Error(error.response?.data?.message || "Failed to fetch approved packets", { cause: error });
-  }
-}
+export const getSubjects = () => jsonRequest("get", "/subjects");
+export const getSubjectsByDepartment = (dept) => jsonRequest("get", `/subjects/${dept}`);
+export const createSubject = (data, role, email) =>
+  jsonRequest("post", "/admin/subjects", data, authHeaders(role, email));
+export const updateSubject = (id, data, role, email) =>
+  jsonRequest("put", `/admin/subjects/${id}`, data, authHeaders(role, email));
+export const deleteSubject = (id, role, email) =>
+  jsonRequest("delete", `/admin/subjects/${id}`, null, authHeaders(role, email));

@@ -1,5 +1,5 @@
 import { allAsync, getAsync, runAsync } from "./database.js";
-import { findUserByEmail, grantStudentSectionAccess } from "./userModel.js";
+import { findUserByEmail } from "./userModel.js";
 
 export async function createCourseAccessRequest({ studentEmail, requestedSection, courseTitle, reason }) {
   const student = await findUserByEmail(studentEmail);
@@ -72,13 +72,13 @@ export async function updateRequestStatus(id, status, adminEmail) {
 
     if (status === "approved") {
       const studentEmail = request.studentEmail;
-      // Get student's section info
+
       const student = await findUserByEmail(studentEmail);
       if (student && request.courseId) {
-        // Grant access if courseId exists
+
         const course = await getAsync("SELECT * FROM courses WHERE id = ?", [request.courseId]);
         if (course) {
-          await grantStudentSectionAccess(studentEmail, course.section);
+
         }
       }
     }
@@ -104,3 +104,4 @@ export async function escalateRequest(id) {
 
   return getAsync("SELECT * FROM requests WHERE id = ?", [id]);
 }
+

@@ -1,32 +1,31 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import Layout from "../../components/layout/Layout";
 import { approvePacket, getAllPackets, rejectPacket } from "../../services/packetService";
 import PacketProgress from "../../components/common/PacketProgress";
 import LiveMeta from "../../components/common/LiveMeta";
 import PacketDetailsModal from "../../components/common/PacketDetailsModal";
+import { TableSkeleton } from "../../components/common/Skeleton";
+import { useToast } from "../../components/common/Toast";
 
 function formatStatus(status) {
   return status ? status.charAt(0).toUpperCase() + status.slice(1) : "Pending";
 }
 
 function StatusBadge({ status }) {
-  const color =
+  const cls =
     status === "Approved"
-      ? "bg-green-100 text-green-700"
+      ? "badge-approved"
       : status === "Rejected"
-      ? "bg-red-100 text-red-700"
-      : "bg-yellow-100 text-yellow-700";
+      ? "badge-rejected"
+      : "badge-pending";
 
-  return (
-    <span className={`px-3 py-1 rounded-full text-sm font-medium ${color}`}>
-      {status}
-    </span>
-  );
+  return <span className={cls}>{status}</span>;
 }
 
 export default function AdminPackets() {
   const { logout, user } = useAuth();
+  const toast = useToast();
   const [packets, setPackets] = useState([]);
   const [selected, setSelected] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +45,10 @@ export default function AdminPackets() {
           setLastUpdated(new Date());
           setError(null);
         })
-        .catch((err) => setError(err.message || "Unable to load packets"))
+        .catch((err) => {
+          setError(err.message || "Unable to load packets");
+          toast.error("Failed to load packets");
+        })
         .finally(() => setLoading(false));
     };
 
@@ -55,18 +57,16 @@ export default function AdminPackets() {
     return () => clearInterval(timer);
   }, [user]);
 
-  const visiblePackets = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return packets.filter((packet) => {
-      const matchesStatus = statusFilter === "all" || packet.status === statusFilter;
-      const matchesSearch =
-        !term ||
-        [packet.title, packet.course, packet.facultyEmail]
-          .filter(Boolean)
-          .some((value) => value.toLowerCase().includes(term));
-      return matchesStatus && matchesSearch;
-    });
-  }, [packets, search, statusFilter]);
+  const term = search.trim().toLowerCase();
+  const visiblePackets = packets.filter((packet) => {
+    const matchesStatus = statusFilter === "all" || packet.status === statusFilter;
+    const matchesSearch =
+      !term ||
+      [packet.title, packet.course, packet.facultyEmail]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(term));
+    return matchesStatus && matchesSearch;
+  });
 
   const updateStatus = async (id, status) => {
     try {
@@ -78,9 +78,10 @@ export default function AdminPackets() {
         current.map((packet) => (packet.id === id ? updated : packet))
       );
       setSelected((s) => s.filter((x) => x !== id));
-      setError(null);
+      toast.success(`Packet #${id} ${status} successfully`);
     } catch (err) {
       setError(err.message || "Could not update packet");
+      toast.error(err.message || "Could not update packet");
     }
   };
 
@@ -94,19 +95,20 @@ export default function AdminPackets() {
 
   const bulkUpdate = async (status) => {
     if (!selected.length) {
-      alert("Please select at least one packet before applying bulk actions.");
+      toast.warning("Please select at least one packet before applying bulk actions.");
       return;
     }
 
     for (const id of selected) {
       await updateStatus(id, status);
     }
+    toast.success(`Bulk ${status} completed for ${selected.length} packets`);
   };
 
   const exportCSV = () => {
     const exportPackets = selected.length ? packets.filter((p) => selected.includes(p.id)) : visiblePackets;
     if (!exportPackets.length) {
-      alert("No packets available to export.");
+      toast.warning("No packets available to export.");
       return;
     }
 
@@ -124,6 +126,7 @@ export default function AdminPackets() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }, 100);
+    toast.success(`Exported ${exportPackets.length} packets to CSV`);
   };
 
   return (
@@ -133,29 +136,54 @@ export default function AdminPackets() {
       onLogout={logout}
     >
       <div className="card">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-800">Packet Requests</h3>
+            <h3 className="section-title">
+              <svg className="w-5 h-5 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              Packet Requests
+            </h3>
             <LiveMeta lastUpdated={lastUpdated} />
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => bulkUpdate("approved")} className="btn-primary">Bulk Approve</button>
-            <button onClick={() => bulkUpdate("rejected")} className="btn-secondary">Bulk Reject</button>
-            <button onClick={exportCSV} className="btn-secondary">Export CSV</button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => bulkUpdate("approved")} className="btn-success btn-sm">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Bulk Approve
+            </button>
+            <button onClick={() => bulkUpdate("rejected")} className="btn-danger btn-sm">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Bulk Reject
+            </button>
+            <button onClick={exportCSV} className="btn-secondary btn-sm">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export CSV
+            </button>
           </div>
         </div>
 
         <div className="mb-4 grid gap-3 md:grid-cols-[1fr_180px]">
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search packet, course, faculty..."
-            className="rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+          <div className="relative">
+            <svg className="absolute left-3.5 top-3 w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search packet, course, faculty..."
+              className="form-input pl-11"
+            />
+          </div>
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
-            className="rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+            className="form-select"
           >
             <option value="all">All status</option>
             <option value="pending">Pending</option>
@@ -165,67 +193,64 @@ export default function AdminPackets() {
         </div>
 
         {loading ? (
-          <p className="text-slate-600">Loading packets...</p>
+          <TableSkeleton rows={4} cols={8} />
         ) : error ? (
-          <p className="text-rose-600">{error}</p>
+          <div className="flex items-center gap-2 text-sm text-rose-600 bg-rose-50 rounded-xl px-4 py-3">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{error}</span>
+          </div>
         ) : visiblePackets.length === 0 ? (
-          <p className="text-slate-600">No packets available.</p>
+          <div className="empty-state">
+            <svg className="w-16 h-16 mb-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+            <p className="text-slate-500 font-medium">No packets available</p>
+          </div>
         ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b bg-slate-50">
-                <th className="p-3">
-                  <input type="checkbox" onChange={(e) => selectAll(e.target.checked)} checked={selected.length === visiblePackets.length && visiblePackets.length > 0} />
-                </th>
-                <th className="p-3">ID</th>
-                <th className="p-3">Faculty</th>
-                <th className="p-3">Packet</th>
-                <th className="p-3">Course</th>
-                <th className="p-3">Status</th>
-                <th className="p-3">Progress</th>
-                <th className="p-3">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visiblePackets.map((packet) => (
-                <tr key={packet.id} className="border-b hover:bg-slate-50">
-                  <td className="p-3">
-                    <input type="checkbox" checked={selected.includes(packet.id)} onChange={() => toggle(packet.id)} />
-                  </td>
-                  <td className="p-3">{packet.id}</td>
-                  <td className="p-3">{packet.facultyEmail}</td>
-                  <td className="p-3">{packet.title}</td>
-                  <td className="p-3">{packet.course}</td>
-                  <td className="p-3">
-                    <StatusBadge status={formatStatus(packet.status)} />
-                  </td>
-                  <td className="p-3"><PacketProgress status={packet.status} /></td>
-                  <td className="p-3 space-x-2">
-                    <button
-                      onClick={() => updateStatus(packet.id, "approved")}
-                      className="px-3 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 transition"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => updateStatus(packet.id, "rejected")}
-                      className="px-3 py-2 rounded-xl bg-rose-500 text-white hover:bg-rose-600 transition"
-                    >
-                      Reject
-                    </button>
-                    <button
-                      onClick={() => setActivePacket(packet)}
-                      className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
-                    >
-                      View
-                    </button>
-                  </td>
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b bg-slate-50/80">
+                  <th className="table-header w-12">
+                    <input type="checkbox" className="rounded border-slate-300 text-primary-600 focus:ring-primary-500" onChange={(e) => selectAll(e.target.checked)} checked={selected.length === visiblePackets.length && visiblePackets.length > 0} />
+                  </th>
+                  <th className="table-header">ID</th>
+                  <th className="table-header">Faculty</th>
+                  <th className="table-header">Packet</th>
+                  <th className="table-header">Course</th>
+                  <th className="table-header">Status</th>
+                  <th className="table-header">Progress</th>
+                  <th className="table-header">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {visiblePackets.map((packet, idx) => (
+                  <tr key={packet.id} className="table-row animate-fade-in" style={{ animationDelay: `${idx * 50}ms` }}>
+                    <td className="table-cell">
+                      <input type="checkbox" className="rounded border-slate-300 text-primary-600 focus:ring-primary-500" checked={selected.includes(packet.id)} onChange={() => toggle(packet.id)} />
+                    </td>
+                    <td className="table-cell font-medium text-slate-800">#{packet.id}</td>
+                    <td className="table-cell">{packet.facultyEmail}</td>
+                    <td className="table-cell font-medium text-slate-800">{packet.title}</td>
+                    <td className="table-cell">{packet.course}</td>
+                    <td className="table-cell">
+                      <StatusBadge status={formatStatus(packet.status)} />
+                    </td>
+                    <td className="table-cell"><PacketProgress status={packet.status} /></td>
+                    <td className="table-cell">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button onClick={() => updateStatus(packet.id, "approved")} className="btn-success btn-sm">Approve</button>
+                        <button onClick={() => updateStatus(packet.id, "rejected")} className="btn-danger btn-sm">Reject</button>
+                        <button onClick={() => setActivePacket(packet)} className="btn-secondary btn-sm">View</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
       <PacketDetailsModal packet={activePacket} onClose={() => setActivePacket(null)} />

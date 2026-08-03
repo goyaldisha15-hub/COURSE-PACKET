@@ -42,3 +42,4 @@ router.get("/faculty/requests", requireSectionedFaculty, getTeacherSectionReques
 router.post("/faculty/requests/:requestId/escalate", requireSectionedFaculty, teacherEscalateRequest);
 
 export default router;
+

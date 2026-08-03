@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../../components/layout/Layout";
 import { useAuth } from "../../../context/AuthContext";
@@ -35,20 +35,21 @@ export default function CourseTracking() {
   }, [user]);
 
   const totalCourses = courses.length;
-  const averageProgress = useMemo(() => {
-    if (!courses.length) return 0;
-    return Math.round(courses.reduce((sum, course) => sum + course.progress, 0) / courses.length);
-  }, [courses]);
+  let averageProgress = 0;
+  if (courses.length) {
+    let sum = 0;
+    for (const course of courses) {
+      sum += course.progress || 0;
+    }
+    averageProgress = Math.round(sum / courses.length);
+  }
 
-  const statusCounts = useMemo(() => {
-    return courses.reduce(
-      (counts, course) => {
-        counts[course.status] = (counts[course.status] || 0) + 1;
-        return counts;
-      },
-      { ongoing: 0, completed: 0, paused: 0 }
-    );
-  }, [courses]);
+  const statusCounts = { ongoing: 0, completed: 0, paused: 0 };
+  for (const course of courses) {
+    if (course.status) {
+      statusCounts[course.status] = (statusCounts[course.status] || 0) + 1;
+    }
+  }
 
   return (
     <Layout
@@ -138,3 +139,4 @@ export default function CourseTracking() {
     </Layout>
   );
 }
+

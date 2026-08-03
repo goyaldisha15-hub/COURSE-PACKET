@@ -31,7 +31,7 @@ export async function createCourse({ title, description, section, teacherEmail }
 
   const now = new Date().toISOString();
   try {
-    // Get faculty ID from email
+
     const faculty = await getAsync("SELECT id FROM users WHERE email = ? AND role = 'faculty'", [teacherEmail]);
     if (!faculty) {
       return null;
@@ -53,3 +53,4 @@ export async function createCourse({ title, description, section, teacherEmail }
     return null;
   }
 }
+

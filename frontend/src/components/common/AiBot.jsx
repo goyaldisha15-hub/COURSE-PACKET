@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { getUsers } from "../../services/authService";
@@ -118,10 +118,13 @@ export default function AiBot() {
   }, [open, user]);
 
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+    const element = document.getElementById("ai-bot-list");
+    if (element) {
+      element.scrollTop = element.scrollHeight;
+    }
   }, [messages]);
 
-  const prompts = useMemo(() => quickPrompts[user?.role] || [], [user]);
+  const prompts = quickPrompts[user?.role] || [];
 
   const sendMessage = (value = input) => {
     const question = value.trim();
@@ -163,7 +166,7 @@ export default function AiBot() {
             </button>
           </div>
 
-          <div ref={listRef} className="max-h-80 space-y-3 overflow-y-auto p-4">
+          <div id="ai-bot-list" className="max-h-80 space-y-3 overflow-y-auto p-4">
             {messages.map((message, index) => (
               <div
                 key={`${message.from}-${index}`}
@@ -220,3 +223,4 @@ export default function AiBot() {
     </div>
   );
 }
+

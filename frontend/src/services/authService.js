@@ -1,48 +1,31 @@
-import axios from "axios";
+import { authHeaders, formRequest, jsonRequest } from "./apiClient";
 
-const API_BASE_URL = "http://localhost:5000/api";
 
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
+export const loginUser = (data) => jsonRequest("post", "/auth/login", data);
+export const registerUser = (data) => jsonRequest("post", "/auth/register", data);
+export const forgotPassword = (email) => jsonRequest("post", "/auth/forgot-password", { email });
+export const resetPassword = (token, newPassword) => jsonRequest("post", "/auth/reset-password", { token, newPassword });
+export const changePassword = (role, email, oldPassword, newPassword) =>
+  jsonRequest("post", "/auth/change-password", { oldPassword, newPassword }, authHeaders(role, email));
 
-export async function loginUser({ email, password, role }) {
-  try {
-    const response = await apiClient.post("/auth/login", { email, password, role });
-    return response.data;
-  } catch (error) {
-    throw new Error(error.response?.data?.message || "Login failed. Please try again.", { cause: error });
-  }
-}
 
-export async function registerUser({ name, email, password, role, section }) {
-  try {
-    const response = await apiClient.post("/auth/register", {
-      name,
-      email,
-      password,
-      role,
-      section,
-    });
-    return response.data;
-  } catch (error) {
-    throw new Error(error.response?.data?.message || "Registration failed. Please try again.", { cause: error });
-  }
-}
+export const getProfile = (role, email) => jsonRequest("get", "/profile", null, authHeaders(role, email));
+export const updateProfile = (role, email, data) =>
+  jsonRequest("put", "/profile", data, authHeaders(role, email));
+export const uploadProfilePhoto = (role, email, file) => {
+  const fd = new FormData();
+  fd.append("photo", file);
+  return formRequest("/profile/photo", fd, authHeaders(role, email));
+};
 
-export async function getUsers(role, email) {
-  try {
-    const response = await apiClient.get("/admin/users", {
-      headers: {
-        "x-user-email": email,
-        "x-user-role": role,
-      },
-    });
-    return response.data;
-  } catch (error) {
-    throw new Error(error.response?.data?.message || "Failed to fetch users", { cause: error });
-  }
-}
+
+export const getUsers = (role, email) => jsonRequest("get", "/admin/users", null, authHeaders(role, email));
+export const adminUpdateUser = (role, email, userId, data) =>
+  jsonRequest("put", `/admin/users/${userId}`, data, authHeaders(role, email));
+export const adminDeleteUser = (role, email, userId) =>
+  jsonRequest("delete", `/admin/users/${userId}`, null, authHeaders(role, email));
+
+
+export const getNotifications = (role, email) => jsonRequest("get", "/notifications", null, authHeaders(role, email));
+export const markNotificationRead = (role, email, id) =>
+  jsonRequest("put", `/notifications/${id}/read`, {}, authHeaders(role, email));
