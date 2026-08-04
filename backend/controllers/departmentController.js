@@ -1,4 +1,4 @@
-import { allAsync, runAsync } from "../../database/database.js";
+import { allAsync, runAsync } from "../database/database.js";
 
 
 function sendError(res, msg, status = 500) {

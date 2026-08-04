@@ -1,4 +1,4 @@
-import { allAsync, getAsync, runAsync } from "./database.js";
+import { allAsync, getAsync, runAsync } from "../database/database.js";
 
 export async function findCourseById(id) {
   return getAsync("SELECT * FROM courses WHERE id = ?", [id]);

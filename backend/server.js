@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 import courseTrackingRoutes from "./routes/courseTracking.js";
 import packetRoutes from "./routes/packetRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
-import { initializeDatabase } from "../database/database.js";
+import { initializeDatabase } from "./database/database.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

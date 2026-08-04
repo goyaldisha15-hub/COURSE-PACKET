@@ -1,4 +1,4 @@
-import { allAsync, getAsync, runAsync } from "./database.js";
+import { allAsync, getAsync, runAsync } from "../database/database.js";
 import { findUserByEmail } from "./userModel.js";
 
 export async function createCourseAccessRequest({ studentEmail, requestedSection, courseTitle, reason }) {

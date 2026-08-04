@@ -1,4 +1,4 @@
-import { allAsync, runAsync, getAsync } from "./database.js";
+import { allAsync, runAsync, getAsync } from "../database/database.js";
 
 
 export async function recordDownload(studentEmail, packetId) {

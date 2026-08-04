@@ -1,7 +1,7 @@
 import { createPacketRequest, getPendingPacketRequests, getApprovedPacketRequests, getPacketRequestById, updatePacketStatus, getFacultyPacketRequests, getAllPackets, updatePacketDetails, deletePacketById, incrementDownloadCount, searchPackets, getPacketsByDepartment, getPacketsBySection, getPacketsBySemester, getPacketsByType, getMonthlyStats, getMostDownloadedPackets, getLeastDownloadedPackets } from "../models/packetModel.js";
 import { createNotification, findUserByEmail } from "../models/userModel.js";
 import { recordDownload } from "../models/downloadModel.js";
-import { allAsync } from "../../database/database.js";
+import { allAsync } from "../database/database.js";
 
 
 function getEmail(req) {

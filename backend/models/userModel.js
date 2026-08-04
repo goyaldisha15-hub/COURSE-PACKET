@@ -1,4 +1,4 @@
-import { allAsync, getAsync, runAsync } from "./database.js";
+import { allAsync, getAsync, runAsync } from "../database/database.js";
 import bcrypt from "bcrypt";
 
 

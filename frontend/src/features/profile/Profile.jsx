@@ -78,6 +78,21 @@ export default function Profile() {
     }
   };
 
+  const handlePhotoUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setError("");
+    try {
+      const updated = await uploadProfilePhoto(user.role, user.email, file);
+      setProfile(updated);
+      toast.success("Profile photo updated successfully!");
+      refreshProfile();
+    } catch (err) {
+      setError(err.message);
+      toast.error(err.message || "Photo upload failed");
+    }
+  };
+
   const handlePwdSubmit = async (e) => {
     e.preventDefault();
     setPwdError("");
@@ -150,7 +165,12 @@ export default function Profile() {
             <input
               type="file"
               id="photo-upload"
-              accept="image}
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoUpload}
+            />
+          </div>
+        </div>
         <div className="lg:col-span-2 card animate-fade-in">
           {editing ? (
             <form onSubmit={handleSave} className="space-y-4">

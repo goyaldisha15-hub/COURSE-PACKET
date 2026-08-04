@@ -1,4 +1,4 @@
-import { allAsync, getAsync, runAsync } from "./database.js";
+import { allAsync, getAsync, runAsync } from "../database/database.js";
 
 
 export async function createPacketRequest({ title, course, subjectCode, description, submittedBy, facultyEmail, semester, department, section, academicYear, packetType, fileName, filePath, fileSize }) {
