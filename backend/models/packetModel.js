@@ -29,15 +29,15 @@ export async function getApprovedPacketRequests(studentDept, studentSection, stu
   let params = [];
   
   if (studentDept) {
-    sql += " AND department = ?";
+    sql += " AND (department = ? OR department = '')";
     params.push(studentDept);
   }
   if (studentSection) {
-    sql += " AND section = ?";
+    sql += " AND (section = ? OR section = '')";
     params.push(studentSection);
   }
   if (studentSemester) {
-    sql += " AND semester = ?";
+    sql += " AND (semester = ? OR semester = '')";
     params.push(studentSemester);
   }
   
