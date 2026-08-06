@@ -5,7 +5,12 @@ import bcrypt from "bcrypt";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const dbPath = path.join(__dirname, "../../database/lms.db");
+const envDbPath = process.env.DATABASE_PATH;
+const dbPath = envDbPath
+  ? path.isAbsolute(envDbPath)
+    ? envDbPath
+    : path.join(__dirname, envDbPath)
+  : path.join(__dirname, "../../database/lms.db");
 
 let db = null;
 

@@ -2,10 +2,13 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import dotenv from "dotenv";
 import courseTrackingRoutes from "./routes/courseTracking.js";
 import packetRoutes from "./routes/packetRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import { initializeDatabase } from "./database/database.js";
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
